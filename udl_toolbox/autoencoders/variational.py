@@ -131,9 +131,15 @@ class VariationalAutoencoder(BaseAutoencoder):
             Sampled latent vector
         """
         z_mean, z_log_var = args
-        batch_size = tf.shape(z_mean)[0]
-        epsilon = tf.random.normal(shape=(batch_size, self.latent_dim))
-        return z_mean + tf.exp(0.5 * z_log_var) * epsilon
+        
+        # Use Keras Lambda layer for sampling
+        def sample(inputs):
+            z_mean, z_log_var = inputs
+            batch_size = tf.shape(z_mean)[0]
+            epsilon = tf.random.normal(shape=(batch_size, self.latent_dim))
+            return z_mean + tf.exp(0.5 * z_log_var) * epsilon
+        
+        return tf.keras.layers.Lambda(sample, name=f"{self.name}_sampling")([z_mean, z_log_var])
     
     def _build_decoder(self) -> tf.keras.Model:
         """Build the decoder network."""
@@ -326,7 +332,7 @@ class VariationalAutoencoder(BaseAutoencoder):
             'std': tf.reduce_mean(z_std, axis=0),
             'mean_of_means': tf.reduce_mean(z_mean),
             'mean_of_stds': tf.reduce_mean(z_std),
-            'latent_dim_variance': tf.reduce_var(z_mean, axis=0)
+            'latent_dim_variance': tf.math.reduce_variance(z_mean, axis=0)
         }
     
     def get_config(self) -> Dict:
